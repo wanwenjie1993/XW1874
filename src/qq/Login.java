@@ -4,9 +4,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketTimeoutException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.jsoup.Connection;
 import org.jsoup.Connection.Method;
 import org.jsoup.Connection.Response;
@@ -17,10 +22,13 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 public class Login {
+	static CookieBean  cb=new CookieBean();
 	public static void main(String[] args) {
+		cb.setPgv_pvi("5617957888");
+		cb.setPgv_si("s1788083200");
 		Map<String, String> cookiesMap = new HashMap<String, String>();
-		cookiesMap.put("pgv_pvi", "5617957888");
-		cookiesMap.put("pgv_si", "s1788083200");
+		cookiesMap.put("pgv_pvi",cb.getPgv_pvi());
+		cookiesMap.put("pgv_si",cb.getPgv_si());
 		cookiesMap.putAll(getCk());
 		cookiesMap.putAll(getCk());
 		String qrsig = makeQrCode().get("qrsig").toString();
@@ -31,9 +39,9 @@ public class Login {
 			url=cheackQrcode(cookiesMap, qrsig);
 			if(!"".equals(url)) {
 				cookiesMap.putAll(getPtwebqq(cookiesMap,url));
+				getVfwebqq();
+				getLogin2();
 				isLogionOn=true;
-				 getPtwebqq(cookiesMap);
-
 				break;
 			}
 			new Thread();
@@ -51,17 +59,17 @@ public class Login {
 	public static Map<String, String> getCk() {
         System.out.println("获取cookies...");
         String url="https://xui.ptlogin2.qq.com/cgi-bin/xlogin?daid=164&target=self&style=40&pt_disable_pwd=1&mibao_css=m_webqq&appid=501004106&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Fproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20131024001";
-		Connection conn = Jsoup.connect(
-		url);
+		Connection conn = Jsoup.connect(url);
 		conn.header("user-agent","Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.52 Safari/537.36");
 		conn.method(Method.GET);
-		conn.followRedirects(false);
+		conn.followRedirects(true);
 		conn.ignoreContentType(true);
 		Response response;
 		try {
 			response = conn.execute();
-			System.out.println(response.cookies());
-           return response.cookies();
+			Map<String, String> cookie=response.cookies();
+			System.out.println(cookie);
+           return cookie;
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -107,16 +115,18 @@ public class Login {
 		conn.cookies(cMap);
 		conn.header("referer", "https://xui.ptlogin2.qq.com/cgi-bin/xlogin?daid=164&target=self&style=40&pt_disable_pwd=1&mibao_css=m_webqq&appid=501004106&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Fproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20131024001");
         conn.method(Method.GET);
-		conn.followRedirects(false);
+		conn.followRedirects(true);
 		conn.ignoreContentType(true);
 		Response response;
 		try {
 			response = conn.execute();
+			System.out.println(response.cookies());
+			Map<String, String> cookie=response.cookies();
 			String html=response.body();
-			System.out.println(html);
 			if(String.valueOf(html.charAt(8)).equals("0")) {
+				cb.setPtisp(cookie.get("ptisp").toString());
+				cb.setRK(cookie.get("RK").toString());
 				html=html.split("','")[2];
-				System.out.println(html);
 				return html;
 			}			
 		} catch (IOException e) {
@@ -140,11 +150,23 @@ public class Login {
 	
 	public static Map<String, String> getPtwebqq(Map<String, String> cMap,String url) {
 		System.out.println("正在登录...");
+		System.out.println(url);
 	    try {
 	    	Response doc = Jsoup.connect(url).method(Method.GET).
-	    			timeout(120000).followRedirects(true).execute();
-			System.out.println(doc.body());
-System.out.println(doc.cookies());
+	    			timeout(120000).followRedirects(false).execute();
+           Map<String, String> cookies=doc.cookies();
+           cb.setUin(cookies.get("uin").toString());
+           cb.setSkey(cookies.get("skey").toString());
+           cb.setPt2gguin(cookies.get("pt2gguin").toString());
+           
+           Map<String, List<String>> map= doc.multiHeaders();
+           List<String> ss =map.get("Set-Cookie");
+           String aa=ss.toString().replaceAll("Path=/;Domain=qq.com;,", "");
+           aa=aa.replaceAll("Path=/;Domain=web2.qq.com;,", "");
+           aa=aa.substring(1, aa.length()-1);
+           cb.setCookies(aa);
+           System.out.println(aa);
+           return cookies;
 	    } catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -153,28 +175,66 @@ System.out.println(doc.cookies());
 		return null;
 
 	}
-	public static Map<String, String> getPtwebqq(Map<String, String> cMap) {
-		System.out.println("正在登录2...");
-		Connection conn = Jsoup.connect("http://s.web2.qq.com/api/get_self_info2?t=1520518114512");
-		conn.header("user-agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.52 Safari/537.36");
-		conn.header("Content-Type", "utf-8");
-		conn.method(Method.GET);
-        conn.cookies(cMap);
-		conn.followRedirects(false);
-		conn.ignoreContentType(true);
-		Response response;
+	
+	public static String getVfwebqq() {
 		try {
-			response = conn.execute();
-			System.out.println(response.cookies());
-			System.out.println(response.body());
-			return response.cookies();
+			System.out.println("获取Vfwebqq...");
+			Document document=Jsoup.connect("http://s.web2.qq.com/api/getvfwebqq?ptwebqq=&clientid=53999199&psessionid=&t=1520520656491")
+					//.header("Cookie", "pgv_pvi="+cb.getPgv_pvi()+"; RK="+cb.getRK()+"; ptcz=f53eb90ddd1c407757f76b309f0492f0db54d395d58d57e49c105e7599ddad9d; pgv_si="+cb.getPgv_si()+"; pt2gguin="+cb.getPt2gguin()+"; ptisp="+cb.getPtisp()+"; uin="+cb.getUin()+"; skey="+cb.getSkey()+"; p_uin=o1148432236; pt4_token=oL0Hb8gvekYC4tVFzHKG-QzwZ0dp0B-uhcWwBPJfOsg_; p_skey=a")
+					.header("Cookie", cb.getCookies())
+					.header("Referer", "http://s.web2.qq.com/proxy.html?v=20130916001&callback=1&id=1")
+					.header("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.52 Safari/537.36")
+					.ignoreContentType(true)
+					.timeout(120000)
+					.get();
+			String json=document.body().text();
+			JSONObject jsonObject=JSONObject.fromObject(json);
+			JSONObject jsonObject2=JSONObject.fromObject(jsonObject.get("result"));
+                  
+			return jsonObject2.get("vfwebqq").toString();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return null;
-
 	}
+	//第二次登录
+	public static void getLogin2() {
+		try {
+			System.out.println("第二次登录...");
+			String clientId="53999199";
+			String pSessionId="";
+			
+			String jsBody = "{\"ptwebqq\":\"\""
+					+",\"clientid\":\"" + clientId + "\""
+					+ ",\"psessionid\":\""+ pSessionId + "\""
+					+ ",\"status\":online"
+					+ "}";
+			System.out.println("等待消息...");
+			jsBody = "r:" + URLEncoder.encode(jsBody);
+			Document document=Jsoup.connect("http://d1.web2.qq.com/channel/login2")
+					.header("Cookie", cb.getCookies())
+					.header("Referer", "http://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2")
+					.header("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.52 Safari/537.36")
+					.ignoreContentType(true)
+					.requestBody(jsBody)
+					.timeout(60000)
+					.data("aaa", "ccc")
+					.post();
+			System.out.println(document);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	
+    
+	
+	
+	
+	
+	
 	public static String keepHeart(Map<String, String> cMap) {
 
 		String url = "http://d1.web2.qq.com/channel/poll2";
