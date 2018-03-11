@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: Login
+Class-Path: . lib/commons-beanutils-1.8.3.jar lib/commons-collections-3.2.jar lib/commons-lang.jar lib/commons-logging-1.2.jar lib/ezmorph-1.0.4.jar lib/json-lib-2.2.1-jdk15.jar lib/jsoup-1.11.2.jar 
+Created-By: wwj

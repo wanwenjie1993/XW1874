@@ -4,43 +4,43 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketTimeoutException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import org.jsoup.Connection;
 import org.jsoup.Connection.Method;
 import org.jsoup.Connection.Response;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import ssc.SscLuzu;
 
 public class Login {
 	static CookieBean  cb=new CookieBean();
+	static SscLuzu ssc=new SscLuzu();
+
 	public static void main(String[] args) {
-		cb.setPgv_pvi("5617957888");
-		cb.setPgv_si("s1788083200");
+		
+		cb.setPgv_pvi("8144176128");
+		cb.setPgv_si("s4415319040");
 		Map<String, String> cookiesMap = new HashMap<String, String>();
 		cookiesMap.put("pgv_pvi",cb.getPgv_pvi());
 		cookiesMap.put("pgv_si",cb.getPgv_si());
 		cookiesMap.putAll(getCk());
-		cookiesMap.putAll(getCk());
 		String qrsig = makeQrCode().get("qrsig").toString();
+		//显示二维码
+		new QrCodePic();
 		String url="";
 		cookiesMap.put("qrsig", qrsig);
 		boolean isLogionOn=false;
 		while (true) {
 			url=cheackQrcode(cookiesMap, qrsig);
 			if(!"".equals(url)) {
-				cookiesMap.putAll(getPtwebqq(cookiesMap,url));
+				String ck=getPtwebqq(cookiesMap,url);
 				getVfwebqq();
-				getLogin2();
+				getLogin2(ck);
 				isLogionOn=true;
 				break;
 			}
@@ -52,9 +52,40 @@ public class Login {
 				e.printStackTrace();
 			}
 		}
-		/* while (isLogionOn) {
-			//keepHeart(cookiesMap);
-		}*/ 
+		
+//		心跳
+		String lastWinStr="";
+        String lastLz="";
+        String MsgId="";
+        String from_uin="";
+        String content="";
+		  while (isLogionOn) {
+			  String str=keepHeart();
+			  String winStr=ssc.getWinNum();
+	          String luzu=ssc.getLuzuNum();
+	         
+	          if(!"".equals(str)&&"".equals(MsgId)){
+        		MsgId=str.split(",")[1];
+        		from_uin=str.split(",")[0];
+        		content=str.split(",")[3];
+        		}
+
+	          if(!lastWinStr.equals(winStr)&&!"".equals(MsgId)&&!"".equals(from_uin)&&"ssc".equals(content)) {
+	          //发送消息
+			  sendMsg(from_uin,MsgId, winStr, "message");
+			  lastWinStr=winStr;
+	          }
+	          if(!lastLz.equals(luzu)&&!"".equals(MsgId)&&!"".equals(from_uin)&&"ssc".equals(content)) {
+			  sendMsg(from_uin,MsgId, luzu, "message");
+			  lastLz=luzu;
+	          }
+			  try {
+					Thread.sleep(30000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+		} 
 	}
 	public static Map<String, String> getCk() {
         System.out.println("获取cookies...");
@@ -120,10 +151,14 @@ public class Login {
 		Response response;
 		try {
 			response = conn.execute();
-			System.out.println(response.cookies());
+			 
 			Map<String, String> cookie=response.cookies();
 			String html=response.body();
 			if(String.valueOf(html.charAt(8)).equals("0")) {
+				Map<String, List<String>> map= response.multiHeaders();
+		        List<String> ss =map.get("Set-Cookie");
+				String string=ss.toString();
+				cb.setPtcz(string.substring(string.indexOf(";, ptcz=")+8, string.indexOf(";, ptcz=")+72));
 				cb.setPtisp(cookie.get("ptisp").toString());
 				cb.setRK(cookie.get("RK").toString());
 				html=html.split("','")[2];
@@ -148,7 +183,7 @@ public class Login {
 	    return (int) string.charAt(index);
 	}
 	
-	public static Map<String, String> getPtwebqq(Map<String, String> cMap,String url) {
+	public static String getPtwebqq(Map<String, String> cMap,String url) {
 		System.out.println("正在登录...");
 		System.out.println(url);
 	    try {
@@ -165,8 +200,15 @@ public class Login {
            aa=aa.replaceAll("Path=/;Domain=web2.qq.com;,", "");
            aa=aa.substring(1, aa.length()-1);
            cb.setCookies(aa);
-           System.out.println(aa);
-           return cookies;
+           String s1=aa.substring(94, 221);
+           s1="{"+s1+"}";
+           JSONObject jsonObject=JSONObject.fromObject(s1);
+           cb.setP_uin(jsonObject.get("p_uin").toString());
+           cb.setPt4_token(jsonObject.get("pt4_token").toString());
+           cb.setP_skey(jsonObject.get("p_skey").toString());
+           String ckString="pgv_pvi="+cb.getPgv_pvi()+"; pt2gguin="+cb.getPt2gguin()+"; RK="+cb.getRK()+"; ptcz="+cb.getPtcz()+"; pgv_si="+cb.getPgv_si()+"; uin="+cb.getUin()+"; skey="+cb.getSkey()+"; ptisp="+cb.getPtisp()+"; p_uin=o1148432236; pt4_token="+cb.getPt4_token()+"; p_skey="+cb.getP_skey()+"";
+           System.out.println(ckString);
+           return ckString;
 	    } catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -199,21 +241,17 @@ public class Login {
 		return null;
 	}
 	//第二次登录
-	public static void getLogin2() {
+	public static void getLogin2(String ck) {
 		try {
 			System.out.println("第二次登录...");
-			String clientId="53999199";
-			String pSessionId="";
-			
 			String jsBody = "{\"ptwebqq\":\"\""
-					+",\"clientid\":\"" + clientId + "\""
-					+ ",\"psessionid\":\""+ pSessionId + "\""
-					+ ",\"status\":online"
-					+ "}";
+					+",\"clientid\":53999199"
+					+ ",\"psessionid\":\"\""
+					+ ",\"status\":\"online\"}";
 			System.out.println("等待消息...");
-			jsBody = "r:" + URLEncoder.encode(jsBody);
+			jsBody = "r=" + URLEncoder.encode(jsBody);
 			Document document=Jsoup.connect("http://d1.web2.qq.com/channel/login2")
-					.header("Cookie", cb.getCookies())
+					.header("Cookie", ck)
 					.header("Referer", "http://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2")
 					.header("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.52 Safari/537.36")
 					.ignoreContentType(true)
@@ -221,21 +259,19 @@ public class Login {
 					.timeout(60000)
 					.data("aaa", "ccc")
 					.post();
-			System.out.println(document);
+			String reString=document.body().text();
+			JSONObject jsonObject=JSONObject.fromObject(reString);
+			JSONObject js2=JSONObject.fromObject(jsonObject.get("result").toString());
+			cb.setPsessionid(js2.get("psessionid").toString());
+			cb.setCookies(ck);
+			System.out.println(document.body().text());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	
-	
-    
-	
-	
-	
-	
-	
-	public static String keepHeart(Map<String, String> cMap) {
+
+	public static String keepHeart() {
 
 		String url = "http://d1.web2.qq.com/channel/poll2";
 		try {
@@ -245,23 +281,22 @@ public class Login {
 			headMap.put("Accept-Language", "zh-CN,zh;q=0.9");
 			headMap.put("Connection", "keep-alive");
 			headMap.put("Content-Length", "331");
+			headMap.put("Cookie",cb.getCookies());
 			headMap.put("Content-Type", "application/x-www-form-urlencoded");
 			headMap.put("Host", "d1.web2.qq.com");
 			headMap.put("Origin", "http://d1.web2.qq.com");		
 			headMap.put("Referer", "http://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2");
 			headMap.put("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.75 Safari/537.36");
-			String MsgId = "123";
-			String PSessionID = "123";
 			String jsBody = "{\"ptwebqq\":\"\""
-					+",\"clientid\":\"" + MsgId + "\""
-					+ ",\"psessionid\":\""+ PSessionID + "\""
+					+",\"clientid\":\"53999199\""
+					+ ",\"psessionid\":\""+cb.getPsessionid()+"\""
 					+ ",\"key\":\"\""
 					+ "}";
 			System.out.println("等待消息...");
 			jsBody = "r:" + URLEncoder.encode(jsBody);
 			Connection connection = Jsoup.connect(url);
 			connection.data("aaa", "ccc");
-			connection.cookies(cMap);
+			//connection.cookies(cMap);
 			connection.headers(headMap);
 			connection.ignoreContentType(true);
 			connection.requestBody(jsBody);
@@ -279,7 +314,63 @@ public class Login {
 		return "";
 		
 	}
-	
+	public static void sendMsg(String send_uin,String MsgId,String msg,String msgType) {
+		String url1 = "http://d1.web2.qq.com/channel/send_buddy_msg2";
+		String url2 = "http://d1.web2.qq.com/channel/send_qun_msg2";
+		System.out.println("cok:"+cb.getCookies());
+		try {
+			Map<String, String> headMap = new HashMap<String, String>();
+			headMap.put("Accept", "*/*");
+			headMap.put("Accept-Encoding", "gzip, deflate");
+			headMap.put("Accept-Language", "zh-CN,zh;q=0.9");
+			headMap.put("Cache-Control", "no-cache");
+			headMap.put("Connection", "keep-alive");
+			headMap.put("Content-Length", "585");
+			headMap.put("Content-Type", "application/x-www-form-urlencoded");
+			headMap.put("Cookie",cb.getCookies());
+			headMap.put("Host", "d1.web2.qq.com");
+			headMap.put("Origin", "http://d1.web2.qq.com");
+			headMap.put("Referer",
+					"http://d1.web2.qq.com/cfproxy.html?v=20151105001&callback=1");
+			headMap.put(
+					"User-Agent",
+					"Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.75 Safari/537.36");
+          
+			String content = msg.replaceAll("\"", "\\\"");
+			
+			String ClientID ="53999199";
+			String PSessionID =cb.getPsessionid();
+			System.out.println("PSessionID"+PSessionID);
+			String s1="";
+			String url="";
+			if(msgType.equals("group_message")){
+				 s1="group_uin";
+				 url=url2;
+			}else if(msgType.equals("message")){ 
+				 s1="to";
+				 url=url1;
+			}
+			String jsBody="{\""+s1+"\":"+send_uin+",\"content\":\"[\\\""+content+"\\\",[\\\"font\\\",{\\\"name\\\":\\\"宋体\\\",\\\"size\\\":10,\\\"style\\\":[0,0,0],\\\"color\\\":\\\"000000\\\"}]]\",\"face\":480,\"clientid\":"+ClientID+",\"msg_id\":"+MsgId+",\"psessionid\":\""+PSessionID+"\"}";
+			jsBody = "r=" + URLEncoder.encode(jsBody);
+			System.out.println("回复:"+content);
+			Connection connection = Jsoup.connect(url);
+			connection.data("aaa", "ccc");
+			connection.headers(headMap);
+			connection.requestBody(jsBody);
+			Document doc = connection.post();
+			String resString=doc.body().text();
+			if("{\"retcode\":0}".equals(resString)){
+
+				System.out.println("发送消息成功...");
+			}else{
+				System.out.println(resString);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
 	public static String fomatJson(String string) {
 	       try {
 	    	   System.out.println(string);

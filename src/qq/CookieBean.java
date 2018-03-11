@@ -1,18 +1,17 @@
 package qq;
-
 public class CookieBean {
-     String pgv_pvi;
-     String RK;
+     String pgv_pvi;//
+     String RK;//
      String ptcz;
-     String pgv_si;
-     String pt2gguin;
-     String ptisp;
-     String uin;
-     String skey;
+     String pgv_si;//
+     String pt2gguin;//
+     String ptisp;//
+     String uin;//
+     String skey;//
      String p_uin;
      String pt4_token;
      String p_skey;
-     //
+     String psessionid;
      String cookies;
 	public String getPgv_pvi() {
 		return pgv_pvi;
@@ -85,5 +84,11 @@ public class CookieBean {
 	}
 	public void setCookies(String cookies) {
 		this.cookies = cookies;
+	}
+	public String getPsessionid() {
+		return psessionid;
+	}
+	public void setPsessionid(String psessionid) {
+		this.psessionid = psessionid;
 	}
 }
